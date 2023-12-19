@@ -126,7 +126,8 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
         model.eval()
         with torch.no_grad():
             x = next(val_loader)
-            x, labels = x[:, :-1], x[:, 1:]
+            x, labels = data["input_ids"], data["labels"]
+            x, labels = x.to(device), labels.to(device)
             loss = model(x, labels, return_loss=True)
             accelerator.print(f"validation loss: {loss.item()}")
 
