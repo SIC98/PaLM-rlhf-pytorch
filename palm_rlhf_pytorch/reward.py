@@ -17,21 +17,24 @@ from palm_rlhf_pytorch.palm import PaLM
 
 # helper functions
 
+
 def exists(val):
     return val is not None
 
+
 # Reward Model - PaLM with a scalar head
+
 
 @beartype
 class RewardModel(nn.Module):
     def __init__(
         self,
         palm: PaLM,
-        dropout = 0.1,
-        num_binned_output = 0.,
-        use_lora = True,
-        lora_r = 8,
-        reward_lora_scope = 'reward',
+        dropout=0.1,
+        num_binned_output=0.0,
+        use_lora=True,
+        lora_r=8,
+        reward_lora_scope="reward",
     ):
         super().__init__()
 
@@ -41,7 +44,7 @@ class RewardModel(nn.Module):
         self.reward_lora_scope = reward_lora_scope if use_lora else None
 
         if exists(self.reward_lora_scope):
-            self.palm.add_finetune_params(reward_lora_scope, lora_r = lora_r)
+            self.palm.add_finetune_params(reward_lora_scope, lora_r=lora_r)
 
         dim = palm.dim
 
@@ -54,8 +57,7 @@ class RewardModel(nn.Module):
             self.to_pred = nn.Linear(dim, num_binned_output)
         else:
             self.to_pred = nn.Sequential(
-                nn.Linear(dim, 1, bias = False),
-                Rearrange('... 1 -> ...')
+                nn.Linear(dim, 1, bias=False), Rearrange("... 1 -> ...")
             )
 
     def load(self, path):
@@ -66,29 +68,34 @@ class RewardModel(nn.Module):
     def finetune_parameters(self):
         return [
             *self.to_pred.parameters(),
-            *(self.palm.finetune_parameters(self.reward_lora_scope) if exists(self.reward_lora_scope) else self.palm.parameters())
+            *(
+                self.palm.finetune_parameters(self.reward_lora_scope)
+                if exists(self.reward_lora_scope)
+                else self.palm.parameters()
+            ),
         ]
 
     def forward(
         self,
         x,
-        mask = None,
-        prompt_mask = None,
-        prompt_lengths = None,
-        labels = None,
-        sample = False,
-        sample_temperature = 1.,
-        disable_lora = False
+        mask=None,
+        prompt_mask=None,
+        prompt_lengths=None,
+        labels=None,
+        sample=False,
+        sample_temperature=1.0,
+        disable_lora=False,
     ):
-
         assert not (exists(prompt_mask) and exists(prompt_lengths))
 
         # derive prompt mask from prompt lengths
 
         if exists(prompt_lengths):
             batch, seq_len = x.shape
-            arange = torch.arange(seq_len, device = x.device)
-            prompt_mask = repeat(arange, 'n -> b n', b = batch) < rearrange(prompt_lengths, 'b -> b 1')
+            arange = torch.arange(seq_len, device=x.device)
+            prompt_mask = repeat(arange, "n -> b n", b=batch) < rearrange(
+                prompt_lengths, "b -> b 1"
+            )
 
         # reward model should have an understanding of which section is prompt, and which section is response
 
@@ -96,27 +103,27 @@ class RewardModel(nn.Module):
 
         if exists(prompt_mask):
             extra_embed = torch.where(
-                rearrange(prompt_mask, 'b n -> b n 1'),
+                rearrange(prompt_mask, "b n -> b n 1"),
                 self.prompt_embed,
-                self.response_embed
+                self.response_embed,
             )
 
         # get embeddings from palm
 
         embeds = self.palm(
             x,
-            extra_embed = extra_embed,
-            return_only_embedding = True,
-            disable_lora = disable_lora,
-            finetune_scope = self.reward_lora_scope
+            extra_embed=extra_embed,
+            return_only_embedding=True,
+            disable_lora=disable_lora,
+            finetune_scope=self.reward_lora_scope,
         )
 
-        pooled = masked_mean(embeds, mask, dim = 1)
+        pooled = masked_mean(embeds, mask, dim=1)
         pred = self.to_pred(pooled)
 
         if sample and self.binned_output:
             assert not exists(labels)
-            pred = gumbel_sample(pred, temperature = sample_temperature, dim = -1)
+            pred = gumbel_sample(pred, temperature=sample_temperature, dim=-1)
 
         if not exists(labels):
             return pred
