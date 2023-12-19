@@ -489,6 +489,7 @@ class PaLM(nn.Module):
     def forward(
         self,
         x,
+        labels,
         return_loss=False,
         disable_lora=False,
         finetune_scope=None,
@@ -496,9 +497,6 @@ class PaLM(nn.Module):
         return_only_embedding=False,
         return_logits_with_embedding=False,
     ):
-        if return_loss:
-            x, labels = x[:, :-1], x[:, 1:]
-
         # mask if encoder
         # treat any token ids that are negative as tokens to mask out - only needed if not autoregressive
 
