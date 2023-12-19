@@ -288,7 +288,7 @@ class PaLM(nn.Module):
         rotary_xpos_scale_base=512,
         flash_attn=False,
         finetune_scopes=tuple(),
-        cross_entropy_ignore_index=0,
+        cross_entropy_ignore_index=-100,
     ):
         super().__init__()
         self.dim = dim
