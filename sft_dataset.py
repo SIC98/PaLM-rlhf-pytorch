@@ -24,7 +24,6 @@ class SFT_dataset(Dataset):
 
         ## format
         pattern_instruction = "prompt"  # instruction
-        pattern_input = "input"  # 내 데이터엔 input이 없다
         pattern_output = "completion"  # output
 
         ############################################################
@@ -46,7 +45,7 @@ class SFT_dataset(Dataset):
         # 입력
         sources = []
         for example in list_data_dict:
-            sources.append(example)
+            sources.append(example[pattern_instruction])
 
         # 출력
         targets = []
