@@ -20,21 +20,23 @@ class SFT_dataset(Dataset):
         dataset: arrow_dataset.Dataset,
         tokenizer: transformers.PreTrainedTokenizer,
         verbose=False,
+        BOU_TOKEN="<|bou_token|>",
+        BOC_TOKEN="<|boc_token|>",
     ):
         super(SFT_dataset, self).__init__()
         logging.warning("Loading data...")
 
         ## format
         pattern_instruction = "prompt"
-        pattern_output = "completion"
+        pattern_output = "messages"
 
         sources = []
         for example in dataset:
-            sources.append(f"{example[pattern_instruction]}{tokenizer.bou_token}")
+            sources.append(f"{example[pattern_instruction]}{BOU_TOKEN}")
 
         targets = []
         for example in dataset:
-            targets.append(f"{example[pattern_output]}{tokenizer.boc_token}")
+            targets.append(f"{example[pattern_output]}{BOC_TOKEN}")
 
         if verbose:
             idx = 0
