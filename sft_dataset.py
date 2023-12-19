@@ -25,25 +25,13 @@ class SFT_dataset(Dataset):
         logging.warning("Loading data...")
 
         ## format
-        pattern_instruction = "prompt"  # instruction
-        pattern_output = "completion"  # output
+        pattern_instruction = "prompt"
+        pattern_output = "completion"
 
-        ############################################################
-        ## load dataset
-
-        # {'prompt': '불고기용 고기 한우에요?',
-        #  'completion': "'저는 인공지능 챗봇이며, 직접적으로 식품에 관한 정보를 가지고 있지 않습니다. 하지만 일반적으로 불고기용 고기는 한우, 쇠고기, 돼지고기 등 다양한 종류의 고기를 사용합니다. 하지만 한우는 대표적인 고급 육류로 알려져 있기 때문에, 한우를 사용하는 경우도 많습니다. 알러지나 개별 건강 상태에 따라 다를 수 있으니 충분한 정보 수집 후에 선택해 주시기 바랍니다.",
-        #  'tokens': 193}
-
-        ############################################################
-        ## 데이터셋 만들기, source와 target
-
-        # 입력
         sources = []
         for example in dataset:
             sources.append(example[pattern_instruction])
 
-        # 출력
         targets = []
         for example in dataset:
             targets.append(f"{example[pattern_output]}{tokenizer.eos_token}")
@@ -54,13 +42,11 @@ class SFT_dataset(Dataset):
             print((targets[idx]))
             print("Tokenizing inputs... This may take some time...")
 
-        ############################################################
-        # data_dict = preprocess(sources, targets, tokenizer)  # https://github.com/Beomi/KoAlpaca/blob/04704348d58b8b1c2e2638d6437a04b4e8ba1823/train.py#L124
         examples = [s + t for s, t in zip(sources, targets)]
 
         # source data tokenized
-        sources_tokenized = self._tokenize_fn(sources, tokenizer)  # source만
-        examples_tokenized = self._tokenize_fn(examples, tokenizer)  # source + target
+        sources_tokenized = self._tokenize_fn(sources, tokenizer)
+        examples_tokenized = self._tokenize_fn(examples, tokenizer)
 
         ## 입력은 source, 출력은 source+target 이지만 학습은 target 부분만
         input_ids = examples_tokenized["input_ids"]
