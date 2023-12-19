@@ -61,13 +61,15 @@ tokenizer = AutoTokenizer.from_pretrained(
 BOU_TOKEN = "<|bou_token|>"
 BOC_TOKEN = "<|boc_token|>"
 
+
 special_tokens_dict = {"additional_special_tokens": [BOU_TOKEN, BOC_TOKEN]}
 tokenizer.add_special_tokens(special_tokens_dict)
 tokenizer.pad_token = tokenizer.eos_token
 
 # instantiate palm
 
-model = PaLM(num_tokens=256, dim=512, depth=8, flash_attn=True).to(device)
+
+model = PaLM(num_tokens=len(tokenizer), dim=512, depth=8, flash_attn=True).to(device)
 
 dataset = load_dataset("HuggingFaceH4/no_robots")
 
@@ -109,6 +111,7 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
     for _ in range(GRADIENT_ACCUMULATE_EVERY):
         data = next(train_loader)
         x, labels = data["input_ids"], data["labels"]
+        x, labels = x.to(device), labels.to(device)
 
         loss = model(x, labels, return_loss=True)
         accelerator.backward(loss / GRADIENT_ACCUMULATE_EVERY)
