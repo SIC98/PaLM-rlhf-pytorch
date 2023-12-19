@@ -7,6 +7,8 @@ import json
 import torch
 import copy
 
+from datasets import arrow_dataset
+
 IGNORE_INDEX = -100
 
 
@@ -15,7 +17,7 @@ class SFT_dataset(Dataset):
 
     def __init__(
         self,
-        data_path_1_SFT: str,
+        dataset: arrow_dataset.Dataset,
         tokenizer: transformers.PreTrainedTokenizer,
         verbose=False,
     ):
@@ -28,13 +30,7 @@ class SFT_dataset(Dataset):
 
         ############################################################
         ## load dataset
-        # 내 데이터셋엔 input이 없다
-        #         data_path_1_SFT = 'data_kochatgpt/korean_chatgpt_1_SFT.jsonl'
-        with open(data_path_1_SFT, "r", encoding="utf-8-sig") as json_file:
-            list_data_dict = json.load(json_file)
-            if verbose:
-                print("## data check ##")
-                print((list_data_dict[0]))
+
         # {'prompt': '불고기용 고기 한우에요?',
         #  'completion': "'저는 인공지능 챗봇이며, 직접적으로 식품에 관한 정보를 가지고 있지 않습니다. 하지만 일반적으로 불고기용 고기는 한우, 쇠고기, 돼지고기 등 다양한 종류의 고기를 사용합니다. 하지만 한우는 대표적인 고급 육류로 알려져 있기 때문에, 한우를 사용하는 경우도 많습니다. 알러지나 개별 건강 상태에 따라 다를 수 있으니 충분한 정보 수집 후에 선택해 주시기 바랍니다.",
         #  'tokens': 193}
@@ -44,12 +40,12 @@ class SFT_dataset(Dataset):
 
         # 입력
         sources = []
-        for example in list_data_dict:
+        for example in dataset:
             sources.append(example[pattern_instruction])
 
         # 출력
         targets = []
-        for example in list_data_dict:
+        for example in dataset:
             targets.append(f"{example[pattern_output]}{tokenizer.eos_token}")
 
         if verbose:
