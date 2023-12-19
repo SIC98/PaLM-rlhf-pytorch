@@ -70,7 +70,7 @@ class SFT_dataset(Dataset):
             tokenizer(
                 text,
                 return_tensors="pt",
-                padding="longest",
+                padding="max_length",  # longest
                 max_length=tokenizer.model_max_length,
                 truncation=True,
             )
