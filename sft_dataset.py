@@ -30,11 +30,11 @@ class SFT_dataset(Dataset):
 
         sources = []
         for example in dataset:
-            sources.append(example[pattern_instruction])
+            sources.append(f"{example[pattern_instruction]}{tokenizer.bou_token}")
 
         targets = []
         for example in dataset:
-            targets.append(f"{example[pattern_output]}{tokenizer.eos_token}")
+            targets.append(f"{example[pattern_output]}{tokenizer.boc_token}")
 
         if verbose:
             idx = 0
