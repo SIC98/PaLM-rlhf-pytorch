@@ -131,12 +131,12 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
             loss = model(x, labels, return_loss=True)
             accelerator.print(f"validation loss: {loss.item()}")
 
-    if i % GENERATE_EVERY == 0:
-        model.eval()
-        inp = random.choice(test_dataset)[:PRIME_LENGTH]
-        prime = decode_tokens(inp)
-        accelerator.print(f"%s \n\n %s", (prime, "*" * 100))
+    # if i % GENERATE_EVERY == 0:
+    #     model.eval()
+    #     inp = random.choice(test_dataset)[:PRIME_LENGTH]
+    #     prime = decode_tokens(inp)
+    #     accelerator.print(f"%s \n\n %s", (prime, "*" * 100))
 
-        sample = model.generate(GENERATE_LENGTH, inp[None, ...])
-        output_str = decode_tokens(sample[0])
-        accelerator.print(output_str, "\n")
+    #     sample = model.generate(GENERATE_LENGTH, inp[None, ...])
+    #     output_str = decode_tokens(sample[0])
+    #     accelerator.print(output_str, "\n")
