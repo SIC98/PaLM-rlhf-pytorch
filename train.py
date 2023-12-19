@@ -11,6 +11,11 @@ from torch.utils.data import DataLoader, Dataset
 from palm_rlhf_pytorch import PaLM
 from accelerate import Accelerator
 
+from transformers import AutoTokenizer
+
+from sft_dataset import SFT_dataset
+from datasets import load_dataset
+
 # constants
 
 NUM_BATCHES = int(1e5)
@@ -25,13 +30,16 @@ SEQ_LEN = 1024
 
 # helpers
 
+
 def cycle(loader):
     while True:
         for data in loader:
             yield data
 
+
 def decode_token(token):
     return str(chr(max(32, token)))
+
 
 def decode_tokens(tokens):
     return "".join(list(map(decode_token, tokens)))
@@ -42,21 +50,30 @@ def decode_tokens(tokens):
 accelerator = Accelerator()
 device = accelerator.device
 
+# tokenizer
+
+tokenizer = AutoTokenizer.from_pretrained(
+    "gpt2",
+    padding_side="right",
+    model_max_length=SEQ_LEN,
+)
+
+BOU_TOKEN = "<|bou_token|>"
+BOC_TOKEN = "<|boc_token|>"
+
+special_tokens_dict = {"additional_special_tokens": [BOU_TOKEN, BOC_TOKEN]}
+tokenizer.add_special_tokens(special_tokens_dict)
+tokenizer.pad_token = tokenizer.eos_token
+
 # instantiate palm
 
-model = PaLM(
-    num_tokens=256,
-    dim=512,
-    depth=8,
-    flash_attn=True
-).to(device)
+model = PaLM(num_tokens=256, dim=512, depth=8, flash_attn=True).to(device)
 
-# prepare enwik8 data
+dataset = load_dataset("HuggingFaceH4/no_robots")
 
-with gzip.open("./data/enwik8.gz") as file:
-    data = np.frombuffer(file.read(int(95e6)), dtype=np.uint8).copy()
-    np_train, np_valid = np.split(data, [int(90e6)])
-    data_train, data_val = torch.from_numpy(np_train), torch.from_numpy(np_valid)
+train_dataset = SFT_dataset(dataset=dataset["train_sft"], tokenizer=tokenizer)
+test_dataset = SFT_dataset(dataset=dataset["test_sft"], tokenizer=tokenizer)
+
 
 class TextSamplerDataset(Dataset):
     def __init__(self, data, seq_len):
@@ -72,14 +89,13 @@ class TextSamplerDataset(Dataset):
     def __len__(self):
         return self.data.size(0) // self.seq_len
 
-train_dataset = TextSamplerDataset(data_train, SEQ_LEN)
-val_dataset = TextSamplerDataset(data_val, SEQ_LEN)
+
 train_loader = cycle(DataLoader(train_dataset, batch_size=BATCH_SIZE))
-val_loader = cycle(DataLoader(val_dataset, batch_size=BATCH_SIZE))
+val_loader = cycle(DataLoader(test_dataset, batch_size=BATCH_SIZE))
 
 # optimizer
 
-optim = Lion(model.palm_parameters(), lr = LEARNING_RATE)
+optim = Lion(model.palm_parameters(), lr=LEARNING_RATE)
 
 model, optim, train_loader, val_loader = accelerator.prepare(
     model, optim, train_loader, val_loader
@@ -91,7 +107,10 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
     model.train()
 
     for _ in range(GRADIENT_ACCUMULATE_EVERY):
-        loss = model(next(train_loader), return_loss = True)
+        data = next(train_loader)
+        x, labels = data["input_ids"], data["labels"]
+
+        loss = model(x, labels, return_loss=True)
         accelerator.backward(loss / GRADIENT_ACCUMULATE_EVERY)
 
     accelerator.print(f"training loss: {loss.item()}")
@@ -103,12 +122,14 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
     if i % VALIDATE_EVERY == 0:
         model.eval()
         with torch.no_grad():
-            loss = model(next(val_loader), return_loss = True)
+            x = next(val_loader)
+            x, labels = x[:, :-1], x[:, 1:]
+            loss = model(x, labels, return_loss=True)
             accelerator.print(f"validation loss: {loss.item()}")
 
     if i % GENERATE_EVERY == 0:
         model.eval()
-        inp = random.choice(val_dataset)[:PRIME_LENGTH]
+        inp = random.choice(test_dataset)[:PRIME_LENGTH]
         prime = decode_tokens(inp)
         accelerator.print(f"%s \n\n %s", (prime, "*" * 100))
 
